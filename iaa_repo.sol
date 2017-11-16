@@ -78,10 +78,14 @@ contract IAA_repo {
     if (msg.sender == iaa_list[i].ra.ethAddress) {
       iaa_list[i].raApproved = true;
     }
+    // set the start date if deployed
+    if (isDeployed(i)) {
+      iaa_list[i].startdate = now;
+    }
   }
 
   // test whether the contract is deployed
-  function isDeployed() constant saneIndex(uint i) returns (bool) {
+  function isDeployed() constant internal saneIndex(uint i) returns (bool) {
     return iaa_list[i].raApproved && iaa_list[i].saApproved;
   }
   
@@ -189,10 +193,12 @@ contract IAA_repo {
 
   function confirmDelivery() saneDeliverable(uint i, uint j)
     returns (bool) {
-    // require that RA the sender
+    // require that RA is the sender
     require (msg.sender == iaa_list[i].ra.ethAddress);
     // require that the IAA is deployed
-    require (iaa_list[i].raApproved && iaa_list[i].saApproved);
+    require (isDeployed(i));
+    // requere that it has not been too long
+    require (now - iaa_list[i].startdate < iaa_list[i].deliverables[j].duration);
     try {
       iaa_list[i].deliverables[j].done = true;
     } catch (e) {
@@ -200,15 +206,28 @@ contract IAA_repo {
     }
     return true;
   }
+
+  // return agency descriptions and the IAA description
+  function getIAAmetadata() saneIndex(uint i) constant
+    returns (bytes32, bytes32, bytes32) {
+    return (iaa_list[i].desc, iaa_list[i].ra.desc, iaa_list[i].sa.desc)
+  }
   
   // IAA deliverables getter function
   function getIAAdeliverables() saneIndex(uint i)
-    constant returns (bytes32[], uint[], bool[]) {
+    constant returns (bytes32[], uint[], uint[], bool[]) {
     // number of deliverables
     uint num = iaa_list[i].deliverables.length;
     bytes32[] memory descriptions = new bytes32[](num);
-    uint[] memory 
-}
-
-  
+    uint[] memory durations = new uint[](num);
+    uint[] memory compensations = new uint[](num);
+    bool[] memory completions = new bool[](num);
+    for (uint j = 0; j < num; j++) {
+      descriptions.push(iaa_list[i].deliverables[j].desc);
+      compensations.push(iaa_list[i].deliverables[j].compensation);
+      durations.push(iaa_list[i].deliverables[j].duration);
+      completions.push(iaa_list[i].deliverables[j].done);
+    }
+    return (descriptions, compensations, durations, completions)
+  }
 }
