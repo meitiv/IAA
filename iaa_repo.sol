@@ -30,36 +30,32 @@ contract IAA_repo {
   // TODO: add events for IAA addition, modification, delivery
 
   function addIAA(bytes32 _desc, address _raAddress, address _saAddress,
-		  bytes32 _saDesc, bytes32 _raDesc) returns (uint) {
+		  bytes32 _saDesc, bytes32 _raDesc) public returns (bool) {
     // require that the requesting agency is the caller of the contract
     require (msg.sender == _raAddress);
 
     // this function returns the index of the newly created IAA or -1
     // if creation failed
     IAA memory newIAA;
-    Agency memory _ra, _sa;
-    _ra.Desc = _raDesc;
+    Agency memory _ra;
+    Agency memory _sa;
+    _ra.desc = _raDesc;
     _sa.desc = _saDesc;
     _ra.ethAddress = msg.sender; // the requesting agency makes the
 				 // addIAA call
     _sa.ethAddress = _saAddress;
     newIAA.desc = _desc;
-    newIAA.sa = sa;
-    newIAA.ra = ra;
+    newIAA.sa = _sa;
+    newIAA.ra = _ra;
     newIAA.startdate = now;
     newIAA.raApproved = true;
     newIAA.saApproved = false;
-    try {
-      iaa_list.push(newIAA);
-    } catch (e) {
-      return false;
-    }
+    iaa_list.push(newIAA);
     // TODO: send create event
     return true;
   }
 
   modifier saneIndex(uint i) {
-    require (i < iaa_list.length);
     _;
   }
 
@@ -70,8 +66,8 @@ contract IAA_repo {
   }
   
   // approval function
-  function approveIAA()
-    saneIndex(uint i) {
+  function approveIAA(uint i) public {
+    require (i < iaa_list.length);
     if (msg.sender == iaa_list[i].sa.ethAddress) {
       iaa_list[i].saApproved = true;
     }
@@ -85,14 +81,17 @@ contract IAA_repo {
   }
 
   // test whether the contract is deployed
-  function isDeployed() constant internal saneIndex(uint i) returns (bool) {
+  function isDeployed(uint i) constant internal returns (bool) {
+    require (i < iaa_list.length);
     return iaa_list[i].raApproved && iaa_list[i].saApproved;
   }
   
   // IAA modification: addition and deletion of deliverables
   // add a deliverable to an existing IAA, change approval status
-  function addDeliverable(bytes32 _desc, uint _compensation, uint _duration)
-    saneIndex(uint i) returns (bool) {
+  function addDeliverable(uint i, bytes32 _desc,
+			  uint _compensation, uint _duration)
+    public returns (bool) {
+    require (i < iaa_list.length);
     // only the sa and ra are allowed to add deliverables
     require (msg.sender == iaa_list[i].sa.ethAddress ||
 	     msg.sender == iaa_list[i].ra.ethAddress);
@@ -101,11 +100,7 @@ contract IAA_repo {
     d.compensation = _compensation;
     d.duration = _duration;
     d.done = false;
-    try {
-      iaa_list[i].deliverables.push(d);
-    } catch (e) {
-      return false;
-    }
+    iaa_list[i].deliverables.push(d);
     // require approval by the agency that is not making the change
     if (msg.sender != iaa_list[i].sa.ethAddress) {
       iaa_list[i].saApproved = false;
@@ -117,23 +112,20 @@ contract IAA_repo {
   }
 
   // remove deliverable, change approval status
-  function removeDeliverable() saneDeliverable(uint i, uint j)
-    returns (bool) {
+  function removeDeliverable(uint i, uint j) public returns (bool) {
+    // i is IAA index and j is the deliverable index
+    require (i < iaa_list.length &&
+	     j < iaa_list[i].deliverables.length);
     // only the sa and ra are allowed to remove deliverables
     require (msg.sender == iaa_list[i].sa.ethAddress ||
 	     msg.sender == iaa_list[i].ra.ethAddress);
 
     // remove the deliverable
-    try {
-      uint memory n = iaa_list[i].deliverables.length - 1;
-      iaa_list[i].deliverables[j] =
-	iaa_list[i].deliverables[n];
-      // remove the last element in the deliverables array
-      delete iaa_list[i].deliverables[n];
-      iaa_list[i].deliverables.length--;
-    } catch (e) {
-      return false;
-    }
+    uint n = iaa_list[i].deliverables.length - 1;
+    iaa_list[i].deliverables[j] = iaa_list[i].deliverables[n];
+    // remove the last element in the deliverables array
+    delete iaa_list[i].deliverables[n];
+    iaa_list[i].deliverables.length--;
     
     // change approval status
     // require approval by the agency that is not making the change
@@ -147,9 +139,12 @@ contract IAA_repo {
   }
     
   // modify deliverable, change approval status
-  function modifyDeliverable(bytes32 _desc, uint _compensation,
-			     uint _duration) saneDeliverable(uint i, uint j)
-    returns (bool) {
+  function modifyDeliverable(uint i, uint j,
+			     bytes32 _desc, uint _compensation,
+			     uint _duration) public returns (bool) {
+    // i is IAA index and j is the deliverable index
+    require (i < iaa_list.length &&
+	     j < iaa_list[i].deliverables.length);
     // only the sa and ra are allowed to modify deliverables
     require (msg.sender == iaa_list[i].sa.ethAddress ||
 	     msg.sender == iaa_list[i].ra.ethAddress);
@@ -161,11 +156,7 @@ contract IAA_repo {
     d.done = false;
 
     // modify the deliverable
-    try {
-      iaa_list[i].deliverables[j] = d;
-    } catch (e) {
-      return false;
-    }
+    iaa_list[i].deliverables[j] = d;
     
     // change approval status
     // require approval by the agency that is not making the change
@@ -178,11 +169,11 @@ contract IAA_repo {
     return true;
   }
     
-  function listMatching(address a) constant returns (uint[]) {
+  function listMatching(address a) private returns (uint[]) {
     // this function returns a list of IAA indices in which the
     // ra or the sa matches the input address
     uint num = iaa_list.length;
-    uint[] memory matchingIAAs = new uint[](num);
+    uint[] matchingIAAs;
     for (uint i = 0; i < num; i++) {
       if (iaa_list[i].ra.ethAddress == a || iaa_list[i].sa.ethAddress == a) {
 	matchingIAAs.push(i);
@@ -191,31 +182,33 @@ contract IAA_repo {
     return matchingIAAs;
   }
 
-  function confirmDelivery() saneDeliverable(uint i, uint j)
-    returns (bool) {
+  function confirmDelivery(uint i, uint j) public returns (bool) {
+    // i is IAA index and j is the deliverable index
+    require (i < iaa_list.length &&
+	     j < iaa_list[i].deliverables.length);
     // require that RA is the sender
     require (msg.sender == iaa_list[i].ra.ethAddress);
     // require that the IAA is deployed
     require (isDeployed(i));
     // requere that it has not been too long
     require (now - iaa_list[i].startdate < iaa_list[i].deliverables[j].duration);
-    try {
-      iaa_list[i].deliverables[j].done = true;
-    } catch (e) {
-      return false;
-    }
+    
+    // mark deliverable as done
+    iaa_list[i].deliverables[j].done = true;
     return true;
   }
 
   // return agency descriptions and the IAA description
-  function getIAAmetadata() saneIndex(uint i) constant
+  function getIAAmetadata(uint i) public constant
     returns (bytes32, bytes32, bytes32) {
-    return (iaa_list[i].desc, iaa_list[i].ra.desc, iaa_list[i].sa.desc)
+    require (i < iaa_list.length);
+    return (iaa_list[i].desc, iaa_list[i].ra.desc, iaa_list[i].sa.desc);
   }
   
   // IAA deliverables getter function
-  function getIAAdeliverables() saneIndex(uint i)
-    constant returns (bytes32[], uint[], uint[], bool[]) {
+  function getIAAdeliverables(uint i) public constant
+    returns (bytes32[], uint[], uint[], bool[]) {
+    require (i < iaa_list.length);
     // number of deliverables
     uint num = iaa_list[i].deliverables.length;
     bytes32[] memory descriptions = new bytes32[](num);
@@ -223,11 +216,11 @@ contract IAA_repo {
     uint[] memory compensations = new uint[](num);
     bool[] memory completions = new bool[](num);
     for (uint j = 0; j < num; j++) {
-      descriptions.push(iaa_list[i].deliverables[j].desc);
-      compensations.push(iaa_list[i].deliverables[j].compensation);
-      durations.push(iaa_list[i].deliverables[j].duration);
-      completions.push(iaa_list[i].deliverables[j].done);
+      descriptions[j] = iaa_list[i].deliverables[j].desc;
+      compensations[j] = iaa_list[i].deliverables[j].compensation;
+      durations[j] = iaa_list[i].deliverables[j].duration;
+      completions[j] = iaa_list[i].deliverables[j].done;
     }
-    return (descriptions, compensations, durations, completions)
+    return (descriptions, compensations, durations, completions);
   }
 }
