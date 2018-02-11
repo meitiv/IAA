@@ -1,0 +1,49 @@
+The landing (home) page will
+
+    1) Check the user agent.  If not Chrome tell user that app works
+       only in Chrome
+
+    2) If UA is Chrome, check for Web3, if none present, walk user
+       through installing Metamask and creating a "den" (password
+       protected private key)
+
+    3) If Web3 is present, check that the user is connected to the
+       Rinkeby testnet and logged into the den (i.e. there is an
+       associated ETH address)
+
+    4) Use the hard coded contract address and ABI to check whether
+       the currenet user has any IAAs
+
+    5) Display the list of IAAs, the role of the user (RA or SA) and
+       state of the IAA, display a "modify" button for IAAs that are
+       not completed and "verify (or approve not sure which is
+       better)" button for IAAs that have not been verified by the
+       user, also display "confirm delivery" button for those IAA for
+       which the user is the RA.  I envision a table with IAA
+       description, date, RA and SA names and a row of buttons of
+       different colors
+
+    6) Somewhere near the top display a "Enter (or create) a new IAA"
+       whether or not the user has pending IAAs.
+
+If user clicks on "Create new IAA" go to a new page which is a
+fillable form.  The user becomes the RA.  S/he needs to designate the
+SA (address and description), give the IAA a description and a list of
+deliverables (descriptions, payment amount and due dates).  There
+should be an "add deliverable" button which adds a row.  Should also
+be able to delete deliverables.  On this page there a "Submit IAA"
+button which runs the addIAA (or something like that) function of the
+contract.
+
+Verify button displays the IAA (description, RA, SA, list of
+deliverables) and presents the "Approve" and "Cancel" buttons.
+Approve calles the contract function and cancel brings the user back
+to the list of IAAs
+
+Modify IAA button brings the user to the same page as the creation but
+the fields are pre-populatted from the contract data.
+
+Confirm delivery displays the IAA with a status of each deliverable
+and a "confirm delivery" button next to each deliverable which can be
+confirmed (i.e. those that are not past due and those not delivered
+yet).  Confirm deliver button runs the associated contract function.
